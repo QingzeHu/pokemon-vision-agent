@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# macOS
+.DS_Store
+
+# API keys — never commit. Files under secrets/, one key per provider.
+secrets/*
+!secrets/.gitkeep
+
+# ROMs & saves — user-supplied and copyrighted; the project ships none.
+roms/*
+!roms/.gitkeep
+old_saves/
+*.gb
+*.gbc
+*.gba
+*.sav
+*.ram
+*.rtc
+
+# Run artifacts — per-run dirs under runs/, or top-level when main.py is
+# invoked directly without POKEMON_RUN_DIR.
+runs/
+agent_state.json
+run.log
+debug_frames/
+
+# litellm proxy runtime files (make serve-cloud)
+litellm.log
+.litellm.pid
+
+# Claude Code local settings
+.claude/settings.local.json

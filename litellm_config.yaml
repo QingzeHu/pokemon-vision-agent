@@ -1,0 +1,16 @@
+# Translates Anthropic-format /v1/messages requests to OpenAI/xAI backends,
+# so main.py (which only speaks the `anthropic` SDK) can drive GPT and Grok
+# models without any code changes. Started by `make serve-cloud` via uvx —
+# litellm is an external tool, not a project dependency (see requirements.txt).
+#
+# Wildcard entries: the --model flag value IS the litellm_params.model string
+# (e.g. "openai/gpt-5.6-sol", "xai/grok-4.5") — no new entry needed per model.
+model_list:
+  - model_name: "openai/*"
+    litellm_params:
+      model: "openai/*"
+      api_key: os.environ/OPENAI_API_KEY
+  - model_name: "xai/*"
+    litellm_params:
+      model: "xai/*"
+      api_key: os.environ/XAI_API_KEY
