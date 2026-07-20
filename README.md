@@ -6,8 +6,8 @@ injected game state — the model looks at the screen, presses buttons, and keep
 its own notes. The game runs in a real mGBA window at real-time speed with
 sound; it never pauses while the model thinks.
 
-📄 [Write-up: I replicated the vision-only Pokémon run Anthropic showcased on the Fable 5 launch page](https://qingze.bearblog.dev/i-replicated-the-vision-only-pokemon-run-anthropic-showcased-on-the-fable-5-launch-page-then-i-read-its-thinking-chains/)
-· 🎬 [Timelapse of the full run (every frame the model saw)](https://youtu.be/Harw0AuclUg)
+- 📄 [Write-up: I replicated the vision-only Pokémon run Anthropic showcased on the Fable 5 launch page](https://qingze.bearblog.dev/i-replicated-the-vision-only-pokemon-run-anthropic-showcased-on-the-fable-5-launch-page-then-i-read-its-thinking-chains/)
+- 🎬 [Timelapse of the full run (every frame the model saw)](https://youtu.be/Harw0AuclUg)
 
 ## Design philosophy
 
