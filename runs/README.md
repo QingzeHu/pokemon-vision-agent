@@ -4,8 +4,11 @@ Raw data from the runs cited in the article. Each directory contains the
 complete console log (`run.log`: timestamped model reasoning, thinking
 summaries, button presses, notes updates, and per-call token/cost accounting)
 and the final agent state (`agent_state.json`: notes, summary, counters).
-`debug_frames/` (official run only) holds every screenshot exactly as the
-model saw it.
+`debug_frames/` holds the screenshots exactly as the model saw them. For the
+official run this is all 2,000 frames, complete. Caveat for the restarted
+runs: frame files are named by turn number, so when a restart reset the
+counter, earlier same-numbered frames were overwritten — e.g. the Crystal
+control run has 385 surviving frames for its 763 turns.
 
 | Directory | Model | Game | What it is |
 |---|---|---|---|
