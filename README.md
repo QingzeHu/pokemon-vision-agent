@@ -36,36 +36,57 @@ its memorized Pokémon knowledge, only the screen and its notes.
    **Settings → Scripting → Edit autorun scripts → Add**. From then on every
    mGBA launch starts the TCP bridge automatically and the agent can attach.
 
-## Run
-
-```sh
-# Quick sanity run / full run on a local LM Studio model (free)
-make dry
-make local
-
-# Claude API (Haiku by default, 100-action cap)
-make claude-dry
-make claude
-
-# Or call the entrypoint directly
-uv run python main.py --rom roms/shuijing.gbc --model claude-sonnet-4-6 --summary-every 50
-```
-
-The agent attaches to a running mGBA, or launches one itself. Stop with
-`Ctrl-C` — mGBA is only quit if the agent launched it.
-
 ## ROM
 
 This project ships **no ROM**. You must supply your own legally-obtained ROM
 file (e.g. dumped from a cartridge you own). mGBA emulates the Game Boy,
 Game Boy Color, and Game Boy Advance, so `.gb`, `.gbc`, and `.gba` all work.
 
+Drop your ROM(s) into `roms/`. The Makefile targets expect two by default —
+`roms/FireRed-CN.gba` and `roms/Crystal-CN.gbc` (the `-CN` runs used the
+Chinese fan translations) — but you can point at any file with `--rom`.
+
+## Run
+
+The test suite needs no ROM and no API key:
+
+```sh
+make test          # assert on the exact request body the agent builds (free)
+```
+
+Playing needs a ROM in `roms/`:
+
+```sh
+# Quick sanity run / full run on a local LM Studio model (free)
+make dry
+make local
+
+# Claude API (Haiku by default, capped at 1000 actions)
+make claude-dry
+make claude
+
+# FireRed is the default game; switch with GAME=crystal
+make claude GAME=crystal
+
+# Or call the entrypoint directly
+uv run python main.py --rom roms/FireRed-CN.gba --model claude-sonnet-5 --summary-every 50
+```
+
+The agent attaches to a running mGBA, or launches one itself. Stop with
+`Ctrl-C` — mGBA is only quit if the agent launched it.
+
 ## Cost warning
 
 Every turn sends a screenshot (vision tokens) plus the conversation history,
 and a real playthrough takes thousands of turns — costs add up quickly. Debug
 the loop on Haiku (`claude-haiku-4-5-20251001`, the default) before switching
-to `claude-sonnet-4-6` or `claude-fable-5`. The system prompt is sent with
-`cache_control` for prompt caching, but the screenshots themselves are new
-tokens each turn. Scope early runs to small goals (e.g. "get out of the first
-room") rather than letting it run unattended.
+to `claude-sonnet-5` or `claude-fable-5`. Prompt caching is on (the system
+prompt, the tools, and a sliding anchor over the history all bill at the
+cache-read rate), which cuts the per-turn cost by roughly an order of magnitude
+on long runs — but screenshots are still new tokens each turn. Scope early runs
+to small goals (e.g. "get out of the first room") rather than letting it run
+unattended.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

@@ -8,11 +8,15 @@
 # `make local` and `make opus` (or any combination) can run at the same time
 # without their notes, logs, or game progress touching each other.
 #
+# Usage (free, no API calls):
+#   make test                   assert on the request body we build (see below)
+#
 # Usage (local model, free):
 #   make dry                    quick 10-action sanity run
 #   make local                  play until Ctrl-C (qwen3.6)
 #   make local-gemma            same, on Gemma 4 31B dense
 #   make local MAX_ACTIONS=200  bounded run
+#   make local GAME=crystal     play Crystal instead (FireRed is the default)
 #   make stop                   unload the local model / stop LM Studio server
 #
 # Usage (cloud models, real money — see CLAUDE.md cost discipline):
@@ -31,7 +35,15 @@
 # secrets/openai_api_key (GPT); $XAI_API_KEY or secrets/xai_api_key (Grok).
 
 MODEL ?= qwen/qwen3.6-35b-a3b
-ROM ?= roms/shuijing.gbc
+# Which game every target plays. Each game gets its own run dir (see RUN_DIR),
+# so one game's notes and save can never leak into another's.
+GAME ?= firered
+ROM_crystal = roms/Crystal-CN.gbc
+ROM_firered = roms/FireRed-CN.gba
+ROM ?= $(ROM_$(GAME))
+ifeq ($(strip $(ROM)),)
+$(error Unknown GAME '$(GAME)' - use GAME=crystal or GAME=firered)
+endif
 RUNS_DIR ?= runs
 # 64K: SUMMARY_EVERY=20 turns × ~2K tokens/turn (one screenshot each) needs
 # headroom; LM Studio 500s on overflow because images can't be truncated.
@@ -52,7 +64,7 @@ gpt:    MODEL = $(GPT_MODEL)
 grok:   MODEL = $(GROK_MODEL)
 
 # MAX_ACTIONS unset = run forever (Ctrl-C to stop).
-claude opus fable5 gpt grok: MAX_ACTIONS ?= 1000
+claude opus fable5 gpt grok: MAX_ACTIONS ?= 2000
 # These are "try it out" runs: start with a blank mind each time (FRESH=0 to
 # resume that model's saved notes instead). `local` is the long-haul run and
 # resumes by default — that asymmetry is intentional.
@@ -79,7 +91,10 @@ fable5:     PORT = 8891
 gpt:        PORT = 8892
 grok:       PORT = 8893
 
-RUN_DIR = $(RUNS_DIR)/$(RUN_LABEL)
+# Crystal keeps the bare label (runs/fable5) because those dirs predate the GAME
+# switch and hold the runs we analyzed; every other game is suffixed
+# (runs/fable5-firered). Nothing overwrites the Crystal history.
+RUN_DIR = $(RUNS_DIR)/$(RUN_LABEL)$(if $(filter crystal,$(GAME)),,-$(GAME))
 RUN_ROM = $(RUN_DIR)/$(notdir $(ROM))
 # Copy the ROM in once per label, then leave it (and the .sav mGBA grows next
 # to it) alone on every later run. Test-then-copy, not `cp -n`: BSD cp (macOS)
@@ -101,7 +116,7 @@ CLAUDE_ENV = ANTHROPIC_API_KEY="$${ANTHROPIC_API_KEY:-$$(cat secrets/anthropic_a
 CLOUD_ENV = ANTHROPIC_API_KEY=sk-local ANTHROPIC_BASE_URL=http://localhost:$(CLOUD_PROXY_PORT)
 
 .PHONY: serve local local-gemma dry claude claude-dry opus fable5 gpt grok \
-        serve-cloud stop-cloud check-key check-openai-key check-xai-key reset stop
+        serve-cloud stop-cloud check-key check-openai-key check-xai-key reset stop test
 
 # Start the LM Studio server and load the vision model. Idempotent, keyed on
 # model name AND context length: a GUI/JIT load leaves the model up at the
@@ -195,3 +210,8 @@ reset:
 stop:
 	lms unload --all
 	lms server stop
+
+# Asserts on the request body we build (leaked state, cache-breaking changes).
+# No API calls, no emulator, no cost - safe to run after any edit.
+test:
+	uv run python test_request_shape.py

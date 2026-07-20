@@ -38,7 +38,4 @@ not change at all, the game is waiting for YOUR input - press a button.
 stuck or the game is frozen, treat that as a hypothesis to re-test, not a fact: \
 re-read the screen from scratch and take one concrete action. A truly frozen game is \
 almost never the explanation - a wall, an unnoticed menu, or a wrong assumption is.
-- If moving seems to do nothing, you may be facing a wall: the first press of a \
-direction can just turn the character. Press the same direction twice, then compare \
-position AND facing across screenshots before concluding movement failed.
 """

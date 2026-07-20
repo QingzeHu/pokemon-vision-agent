@@ -1,9 +1,11 @@
 """Main agent loop, accordion-style memory compression, and crash-safe state."""
 
 import base64
+import glob
 import io
 import json
 import os
+import shutil
 import time
 from datetime import datetime
 
@@ -44,6 +46,8 @@ class Agent:
         self.client = anthropic.Anthropic()
         self.emulator = emulator
         self.model = model
+        # Empty = don't send the param at all; see config.THINKING_MODELS.
+        self.thinking = config.THINKING if model in config.THINKING_MODELS else {}
         self.summary_every = summary_every
         self.history: list[dict] = []
         self.notes: str = "(no notes yet)"
@@ -58,12 +62,11 @@ class Agent:
             "cache_read_input_tokens": 0,
             "cost_usd": 0.0,
         }
-        os.makedirs(config.DEBUG_FRAMES_DIR, exist_ok=True)
-        if fresh and os.path.exists(config.STATE_FILE):
-            os.remove(config.STATE_FILE)
-            log("[state]  --fresh: previous state discarded")
+        if fresh:
+            self._clear_run_dir()
         else:
             self._restore_state()
+        os.makedirs(config.DEBUG_FRAMES_DIR, exist_ok=True)
 
     def run(self, max_actions: int | None = None) -> None:
         """Run the agent loop for up to max_actions presses in THIS session
@@ -79,14 +82,14 @@ class Agent:
             if self.turns_since_summary >= self.summary_every:
                 self._compress_memory()
 
-    def _call_model(self, messages: list[dict], use_tools: bool = True, **kwargs) -> anthropic.types.Message:
+    def _call_model(self, messages: list[dict], **kwargs) -> anthropic.types.Message:
         """messages.create with retries; transient failures must not end the run.
 
-        use_tools=False omits the tools param entirely rather than sending
-        tool_choice="none" - some providers behind translation proxies (e.g.
-        GPT-5.6's Responses API via litellm) mistranslate that tool_choice
-        value into an invalid request. No tools param means nothing to
-        choose, which every backend handles correctly.
+        Every call sends the same tools, the summary turn included. Dropping
+        them there (or sending tool_choice="none") changes the cached prefix —
+        tools render before system and messages — so the whole history re-bills
+        at the cache-WRITE rate once per compression. The summary turn asks for
+        text in its prompt instead.
         """
         delay = config.API_RETRY_DELAY
         for attempt in range(config.API_RETRIES):
@@ -96,7 +99,8 @@ class Agent:
                     max_tokens=config.MAX_TOKENS,
                     system=SYSTEM,
                     messages=self._cache_anchored(messages),
-                    **({"tools": TOOLS} if use_tools else {}),
+                    tools=TOOLS,
+                    **({"thinking": self.thinking} if self.thinking else {}),
                     **kwargs,
                 )
                 self._record_usage(response.usage)
@@ -216,7 +220,12 @@ class Agent:
 
         tool_results = []
         for block in response.content:
-            if block.type == "text":
+            # Models that reason in thinking blocks put everything there and
+            # emit no text block at all — without this the console shows only
+            # button presses. Empty unless config.THINKING asked for a summary.
+            if block.type == "thinking" and block.thinking:
+                log(f"\n[{self.model} · thinking] {block.thinking}")
+            elif block.type == "text":
                 log(f"\n[{self.model}] {block.text}")
             elif block.type == "tool_use":
                 tool_results.append(self._handle_tool(block))
@@ -283,11 +292,20 @@ class Agent:
             "content": (
                 "Pause for a moment. Write a concise progress summary: where you "
                 "are, what you were doing, what worked and what didn't, and your "
-                "immediate next objective. Reply with the summary text only."
+                "immediate next objective. Reply with the summary text only - "
+                "do not call any tool this turn."
             ),
         }
-        response = self._call_model(self.history + [request], use_tools=False)
-        self.summary = "".join(b.text for b in response.content if b.type == "text")
+        response = self._call_model(self.history + [request])
+        text = "".join(b.text for b in response.content if b.type == "text")
+        # Tools stay on the request (for the cache), so the model *can* call one
+        # here anyway. Overwriting with "" would wipe the run's only long-term
+        # memory, so keep the previous summary instead. No buttons are pressed:
+        # tool_use blocks in this response are never executed.
+        if text.strip():
+            self.summary = text
+        else:
+            log("[warn]   summary turn called a tool instead of writing text")
         log(f"[memory] {self.summary}")
         self.history = [self._summary_message()]
         self.turns_since_summary = 0
@@ -305,6 +323,25 @@ class Agent:
                 "(and update_notes for memory) - text alone presses nothing."
             ),
         }
+
+    def _clear_run_dir(self) -> None:
+        """--fresh means a fresh RUN, not a fresh mind on top of an old run's debris.
+
+        Wiping only the state file (what this used to do) is worse than wiping
+        nothing: frames restart at turn_00001 and overwrite the old ones one by
+        one, so a shorter run leaves a directory silently mixing two runs, and
+        run.log is opened in append mode, so it concatenates them. The battery
+        save goes too - a saved game under blank notes desyncs the agent from
+        the screen just as badly as stale notes over a new game. The ROM copy
+        stays; it is an input, not run data.
+        """
+        shutil.rmtree(config.DEBUG_FRAMES_DIR, ignore_errors=True)
+        stale = [config.STATE_FILE, config.LOG_FILE, *glob.glob(os.path.join(config.RUN_DIR, "*.sav"))]
+        for path in stale:
+            if os.path.exists(path):
+                os.remove(path)
+        # Logged after the delete, so the message lands in the new, empty log.
+        log("[state]  --fresh: cleared previous run (state, log, frames, save)")
 
     def _save_state(self) -> None:
         """Persist the agent's mind (notes + summary) atomically after every change."""

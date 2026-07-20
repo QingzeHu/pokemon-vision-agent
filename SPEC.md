@@ -62,7 +62,7 @@ pokemon-vision-agent/
 ### config.py
 Centralize: `MODEL` (default to a cheap model like
 `claude-haiku-4-5-20251001` for loop debugging, with comments noting
-`claude-sonnet-4-6` and `claude-fable-5` as alternatives), `SUMMARY_EVERY`
+`claude-sonnet-5` and `claude-fable-5` as alternatives), `SUMMARY_EVERY`
 (default 30), `FRAMES_PER_ACTION` (default ~24), `UPSCALE` (default 3),
 `MAX_TOKENS`, the frame-stability settle tunables, and the mGBA bridge
 settings (binary path, port, screenshot path, launch timeout).

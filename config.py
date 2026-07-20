@@ -11,7 +11,7 @@ BRIDGE_PORT = int(os.environ.get("POKEMON_BRIDGE_PORT", "8888"))
 
 # Model used for the agent loop. Haiku is cheap/fast for debugging the harness.
 # Stronger alternatives once the loop works:
-#   MODEL = "claude-sonnet-4-6"
+#   MODEL = "claude-sonnet-5"
 #   MODEL = "claude-fable-5"
 MODEL = "claude-haiku-4-5-20251001"
 
@@ -28,6 +28,19 @@ MAX_TOKENS = 8192
 # history matters: once one gets in, it becomes a format example and weaker
 # models spiral into narrating instead of acting.
 TOOLLESS_RETRIES = 2
+
+# --- Reasoning visibility ---
+# Fable 5 always thinks, but returns its thinking blocks EMPTY unless a summary
+# is asked for — which is why a 383-turn run logged 383 button presses and zero
+# reasoning. Asking for the summary costs nothing: thinking is billed the same
+# under every display setting; only what comes back changes.
+#
+# Scoped to models whose thinking is ALREADY on. Sending this to Opus 4.8 would
+# *enable* thinking (it is off when the param is omitted) — a behavior and cost
+# change, not a visibility one. Older Claude models and the litellm / LM Studio
+# backends reject the param outright.
+THINKING = {"type": "adaptive", "display": "summarized"}
+THINKING_MODELS = frozenset({"claude-fable-5"})
 
 # Compress conversation history every N turns. Every turn adds one screenshot
 # (~1.5-2K tokens), so N=20 keeps the history near 40K — safely inside a 64K
@@ -78,7 +91,9 @@ API_RETRY_DELAY = 5.0  # seconds; doubles each attempt, capped at 120
 
 # Notes + latest summary + action count, saved after every change so a crash
 # or restart never loses the agent's "mind". Delete it (or run --fresh) to
-# start over. The game itself persists separately via mGBA's battery save.
+# start over. Note this is the agent's memory, not the game's: the model rarely
+# uses the in-game SAVE, so a resume restores the notes but usually replays the
+# game from the start — the two can desync, which is why --fresh clears both.
 STATE_FILE = os.path.join(RUN_DIR, "agent_state.json")
 
 # Console output is mirrored here with timestamps (append; survives restarts).
